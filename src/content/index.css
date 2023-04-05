@@ -1,0 +1,16 @@
+.coursebox div.content {
+  padding-left: 21px;
+}
+
+.coursebox .content ul.teachers li {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.menu-bottom {
+  display: none;
+}
+
+.block_simple_clock {
+  display: none !important;
+}
