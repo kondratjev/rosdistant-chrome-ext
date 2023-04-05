@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
     build: {
       emptyOutDir: true,
       outDir: 'build',
+      target: 'esnext',
       rollupOptions: {
         input: config,
         output: {
