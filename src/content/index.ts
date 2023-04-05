@@ -1,3 +1,6 @@
+import { BRS_URL, MY_PLAN_URL, MY_STUDY_URL, ROSDISTANT_HOSTNAME } from '../constants/urls';
+import { ICourse, IGrade, IStorage } from '../types/common';
+
 const parseHtmlFromUrl = async (url: string) => {
   try {
     const response = await fetch(url);
@@ -12,24 +15,6 @@ const parseHtmlFromUrl = async (url: string) => {
 const getIdFromLinkTag = (el: Element | null) => {
   return el?.getAttribute('href')?.split('?id=')?.[1];
 };
-
-interface ICourse {
-  [id: string]: {
-    name: string;
-    form: string;
-  };
-}
-
-interface IGrade {
-  min: number;
-  max: number;
-  result: string;
-}
-
-interface ITotal {
-  courses: ICourse;
-  grades: IGrade[];
-}
 
 const parseInfo = (doc: Document) => {
   const dataElements = doc.querySelectorAll('#region-main .card-top p');
@@ -58,25 +43,24 @@ const parseCourses = (doc: Document) => {
 const parseGrades = (doc: Document) => {
   const tableRows = doc.querySelectorAll('.panel-body .row-fluid');
   const grades = Array.from(tableRows).reduce<IGrade[]>((acc, el) => {
-    const [min, max] = el.firstChild?.textContent?.split('-') ?? ['0', '0'];
     const result = el.lastChild?.textContent;
     if (result) {
+      const [min, max] = el.firstChild?.textContent?.split('-') ?? ['0', '0'];
       acc.push({
         min: parseInt(min),
         max: parseInt(max),
         result,
       });
     }
-
     return acc;
   }, []);
   return grades;
 };
 
-if (window.location.hostname === 'edu.rosdistant.ru') {
-  const data = (await chrome.storage.sync.get(['courses', 'grades'])) as ITotal;
+if (window.location.hostname === ROSDISTANT_HOSTNAME) {
+  const data = (await chrome.storage.sync.get(['courses', 'grades'])) as IStorage;
   if (!data.courses) {
-    const doc = await parseHtmlFromUrl('/my/plan/');
+    const doc = await parseHtmlFromUrl(MY_PLAN_URL);
     if (doc instanceof Document) {
       const info = parseInfo(doc);
       const courses = parseCourses(doc);
@@ -85,19 +69,24 @@ if (window.location.hostname === 'edu.rosdistant.ru') {
   }
 
   if (!data.grades?.length) {
-    const doc = await parseHtmlFromUrl('/local/lk/brs.php');
+    const doc = await parseHtmlFromUrl(BRS_URL);
     if (doc instanceof Document) {
       const grades = parseGrades(doc);
       await chrome.storage.sync.set({ grades });
     }
   }
 
-  if (window.location.pathname === '/my/study/') {
-    const data = (await chrome.storage.sync.get(['courses', 'grades'])) as ITotal;
+  if (window.location.pathname === MY_STUDY_URL) {
+    const data = (await chrome.storage.sync.get(['courses', 'grades'])) as IStorage;
 
-    const courseElements = document.querySelectorAll('.mycourses');
-    courseElements.forEach((courseEl) => {
-      // Replace class
+    // Replace main row spans
+    const mainRowEl = document.querySelector('#region-main .row-fluid');
+    mainRowEl?.firstElementChild?.classList?.replace('span8', 'span9');
+    mainRowEl?.lastElementChild?.classList?.replace('span4', 'span3');
+
+    const courseElements = mainRowEl?.querySelectorAll('.mycourses');
+    courseElements?.forEach((courseEl) => {
+      // Replace classes for each course
       const courseboxElement = courseEl.querySelector('.coursebox');
       courseboxElement?.classList?.replace('span8', 'span6');
 
@@ -105,22 +94,22 @@ if (window.location.hostname === 'edu.rosdistant.ru') {
       const id = getIdFromLinkTag(linkEl);
 
       if (id) {
-        const form = data.courses[id]?.form;
-
+        // Add form of course
+        const form = data.courses?.[id]?.form;
         if (form) {
-          // Add form
-          const node = document.createElement('li');
-          node.innerHTML = form;
-          courseEl?.querySelector('.teachers')?.appendChild(node);
+          const listNode = document.createElement('li');
+          listNode.innerHTML = form;
+          courseEl?.querySelector('.teachers')?.appendChild(listNode);
+        }
 
-          // Add grade
-          const result = courseEl.lastElementChild?.textContent?.split(': ')?.[1];
-          if (result) {
-            const parsedResult = parseInt(result);
-            const foundResult = data.grades.find(
-              (res) => res.min <= parsedResult && res.max >= parsedResult,
-            );
-
+        // Add grade
+        const result = courseEl.lastElementChild?.textContent?.split(': ')?.[1];
+        if (result) {
+          const parsedResult = parseInt(result);
+          const foundResult = data.grades?.find(
+            (result) => result.min <= parsedResult && result.max >= parsedResult,
+          );
+          if (foundResult?.result) {
             const span = document.createElement('span');
             span.style.display = 'block';
             span.innerHTML = 'Оценка:';
@@ -129,7 +118,7 @@ if (window.location.hostname === 'edu.rosdistant.ru') {
             container.style.textAlign = 'center';
             container.className = 'rank span2';
             container.appendChild(span);
-            container.append(foundResult!.result);
+            container.append(foundResult.result);
 
             courseEl.appendChild(container);
           }
