@@ -12,53 +12,60 @@ const parseHtmlFromUrl = async (url: string) => {
   }
 };
 
-const getIdFromLinkTag = (el: Element | null) => {
-  return el?.getAttribute('href')?.split('?id=')?.[1];
+const getIdFromLinkTag = (el: HTMLLinkElement | null) => {
+  return el?.href?.replace(/[^0-9]/g, '');
 };
 
 const parseInfo = (doc: Document) => {
-  const dataElements = doc.querySelectorAll('#region-main .card-top p');
-  return Array.from(dataElements, (item) => item.textContent);
+  const infoElements = doc.querySelectorAll<HTMLParagraphElement>('#region-main .card-top p');
+  return Array.from(infoElements, (info) => info?.textContent?.trim());
 };
 
 const parseCourses = (doc: Document) => {
   const courseElements = doc.querySelectorAll('.card-body .row-fluid');
   const courses = Array.from(courseElements).reduce<ICourse>((acc, el) => {
-    const linkEl = el.querySelector('.coursebox a.fancybox-thumb');
-    const formEl = el.querySelector('.span3');
+    const linkEl = el.querySelector<HTMLLinkElement>('.coursebox a.fancybox-thumb');
+    const formEl = el.querySelector<HTMLSpanElement>('.span3');
 
     const id = getIdFromLinkTag(linkEl);
+    const name = linkEl?.textContent?.trim();
+    const form = formEl?.textContent?.trim();
 
-    if (id && linkEl?.textContent && formEl?.textContent) {
+    if (id && name && form) {
       acc[id] = {
-        name: linkEl.textContent.trim(),
-        form: formEl.textContent.trim(),
+        name,
+        form,
       };
     }
+
     return acc;
   }, {});
   return courses;
 };
 
 const parseGrades = (doc: Document) => {
-  const tableRows = doc.querySelectorAll('.panel-body .row-fluid');
-  const grades = Array.from(tableRows).reduce<IGrade[]>((acc, el) => {
-    const result = el.lastChild?.textContent;
-    if (result) {
-      const [min, max] = el.firstChild?.textContent?.split('-') ?? ['0', '0'];
-      acc.push({
+  const tableRows = doc.querySelectorAll<HTMLDivElement>('.panel-body .row-fluid');
+  const grades = Array.from(tableRows).reduce<IGrade[]>((grades, el) => {
+    const scoresRange = el.firstElementChild?.textContent?.trim();
+    const grade = el.lastElementChild?.textContent?.trim();
+
+    if (scoresRange && grade) {
+      const [min, max] = scoresRange.split('-');
+      grades.push({
         min: parseInt(min),
         max: parseInt(max),
-        result,
+        result: grade,
       });
     }
-    return acc;
+
+    return grades;
   }, []);
   return grades;
 };
 
 if (window.location.hostname === ROSDISTANT_HOSTNAME) {
   const data = (await chrome.storage.sync.get(['courses', 'grades'])) as IStorage;
+
   if (!data.courses) {
     const doc = await parseHtmlFromUrl(MY_PLAN_URL);
     if (doc instanceof Document) {
@@ -80,47 +87,48 @@ if (window.location.hostname === ROSDISTANT_HOSTNAME) {
     const data = (await chrome.storage.sync.get(['courses', 'grades'])) as IStorage;
 
     // Replace main row spans
-    const mainRowEl = document.querySelector('#region-main .row-fluid');
+    const mainRowEl = document.querySelector<HTMLDivElement>('#region-main .row-fluid');
     mainRowEl?.firstElementChild?.classList?.replace('span8', 'span9');
     mainRowEl?.lastElementChild?.classList?.replace('span4', 'span3');
 
-    const courseElements = mainRowEl?.querySelectorAll('.mycourses');
+    const courseElements = mainRowEl?.querySelectorAll<HTMLDivElement>('.mycourses');
     courseElements?.forEach((courseEl) => {
       // Replace classes for each course
-      const courseboxElement = courseEl.querySelector('.coursebox');
+      const courseboxElement = courseEl.querySelector<HTMLDivElement>('.coursebox');
       courseboxElement?.classList?.replace('span8', 'span6');
 
-      const linkEl = courseEl.querySelector('.coursename a');
-      const id = getIdFromLinkTag(linkEl);
+      const linkEl = courseboxElement?.querySelector<HTMLLinkElement>('.coursename a');
+      if (linkEl) {
+        const id = getIdFromLinkTag(linkEl);
+        if (id) {
+          // Add form of course
+          const form = data.courses?.[id]?.form;
+          if (form) {
+            const listNode = document.createElement('li');
+            listNode.innerHTML = form;
+            courseboxElement?.querySelector<HTMLUListElement>('.teachers')?.appendChild(listNode);
+          }
 
-      if (id) {
-        // Add form of course
-        const form = data.courses?.[id]?.form;
-        if (form) {
-          const listNode = document.createElement('li');
-          listNode.innerHTML = form;
-          courseEl?.querySelector('.teachers')?.appendChild(listNode);
-        }
+          // Add grade
+          const score = courseEl.lastElementChild?.textContent?.replace(/[^0-9]/g, '');
+          if (score) {
+            const parsedScore = parseInt(score);
+            const foundGrade = data.grades?.find(
+              (grade) => grade.min <= parsedScore && grade.max >= parsedScore,
+            );
+            if (foundGrade?.result) {
+              const span = document.createElement('span');
+              span.style.display = 'block';
+              span.innerHTML = 'Оценка:';
 
-        // Add grade
-        const result = courseEl.lastElementChild?.textContent?.split(': ')?.[1];
-        if (result) {
-          const parsedResult = parseInt(result);
-          const foundResult = data.grades?.find(
-            (result) => result.min <= parsedResult && result.max >= parsedResult,
-          );
-          if (foundResult?.result) {
-            const span = document.createElement('span');
-            span.style.display = 'block';
-            span.innerHTML = 'Оценка:';
+              const container = document.createElement('div');
+              container.style.textAlign = 'center';
+              container.className = 'rank span2';
+              container.appendChild(span);
+              container.append(foundGrade.result);
 
-            const container = document.createElement('div');
-            container.style.textAlign = 'center';
-            container.className = 'rank span2';
-            container.appendChild(span);
-            container.append(foundResult.result);
-
-            courseEl.appendChild(container);
+              courseEl.appendChild(container);
+            }
           }
         }
       }
