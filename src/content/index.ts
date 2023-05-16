@@ -1,67 +1,7 @@
 import { BRS_URL, MY_PLAN_URL, MY_STUDY_URL, ROSDISTANT_HOSTNAME } from '../constants/urls';
-import { ICourse, IGrade, IStorage } from '../types/common';
-
-const parseHtmlFromUrl = async (url: string) => {
-  try {
-    const response = await fetch(url);
-    const html = await response.text();
-    const parser = new DOMParser();
-    return parser.parseFromString(html, 'text/html');
-  } catch {
-    return new Error('Error while parsing HTML');
-  }
-};
-
-const getIdFromLinkTag = (el: HTMLLinkElement | null) => {
-  return el?.href?.replace(/[^0-9]/g, '');
-};
-
-const parseInfo = (doc: Document) => {
-  const infoElements = doc.querySelectorAll<HTMLParagraphElement>('#region-main .card-top p');
-  return Array.from(infoElements, (info) => info?.textContent?.trim());
-};
-
-const parseCourses = (doc: Document) => {
-  const courseElements = doc.querySelectorAll('.card-body .row-fluid');
-  const courses = Array.from(courseElements).reduce<ICourse>((acc, el) => {
-    const linkEl = el.querySelector<HTMLLinkElement>('.coursebox a.fancybox-thumb');
-    const formEl = el.querySelector<HTMLSpanElement>('.span3');
-
-    const id = getIdFromLinkTag(linkEl);
-    const name = linkEl?.textContent?.trim();
-    const form = formEl?.textContent?.trim();
-
-    if (id && name && form) {
-      acc[id] = {
-        name,
-        form,
-      };
-    }
-
-    return acc;
-  }, {});
-  return courses;
-};
-
-const parseGrades = (doc: Document) => {
-  const tableRows = doc.querySelectorAll<HTMLDivElement>('.panel-body .row-fluid');
-  const grades = Array.from(tableRows).reduce<IGrade[]>((grades, el) => {
-    const scoresRange = el.firstElementChild?.textContent?.trim();
-    const grade = el.lastElementChild?.textContent?.trim();
-
-    if (scoresRange && grade) {
-      const [min, max] = scoresRange.split('-');
-      grades.push({
-        min: parseInt(min),
-        max: parseInt(max),
-        result: grade,
-      });
-    }
-
-    return grades;
-  }, []);
-  return grades;
-};
+import { IStorage } from '../types/common';
+import { getIdFromLinkTag, parseHtmlFromUrl } from '../utils/helpers';
+import { parseCourses, parseGrades, parseInfo } from '../utils/parsers';
 
 if (window.location.hostname === ROSDISTANT_HOSTNAME) {
   const data = (await chrome.storage.sync.get(['courses', 'grades'])) as IStorage;
@@ -124,9 +64,9 @@ if (window.location.hostname === ROSDISTANT_HOSTNAME) {
               const container = document.createElement('div');
               container.style.textAlign = 'center';
               container.className = 'rank span2';
+
               container.appendChild(span);
               container.append(foundGrade.result);
-
               courseEl.appendChild(container);
             }
           }
