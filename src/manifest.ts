@@ -27,13 +27,9 @@ export default defineManifest({
   ],
   web_accessible_resources: [
     {
-      resources: [
-        'img/logo-16.png',
-        'img/logo-32.png',
-        'src/content/index.css',
-      ],
+      resources: ['img/logo-16.png', 'img/logo-32.png', 'src/content/index.css'],
       matches: [],
     },
   ],
-  permissions: ['storage'],
+  permissions: ['storage', 'unlimitedStorage'],
 });

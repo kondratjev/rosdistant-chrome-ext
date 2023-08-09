@@ -5,7 +5,7 @@ function App() {
   const [info, setInfo] = useState([]);
 
   useEffect(() => {
-    chrome.storage.sync.get('info').then((data) => {
+    chrome.storage.local.get('info').then((data) => {
       setInfo(data.info);
     });
   }, []);

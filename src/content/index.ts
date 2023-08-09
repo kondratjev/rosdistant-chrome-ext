@@ -4,14 +4,14 @@ import { getIdFromLinkTag, parseHtmlFromUrl } from '../utils/helpers';
 import { parseCourses, parseGrades, parseInfo } from '../utils/parsers';
 
 if (window.location.hostname === ROSDISTANT_HOSTNAME) {
-  const data = (await chrome.storage.sync.get(['courses', 'grades'])) as IStorage;
+  const data = (await chrome.storage.local.get(['courses', 'grades'])) as IStorage;
 
   if (!data.courses) {
     const doc = await parseHtmlFromUrl(MY_PLAN_URL);
     if (doc instanceof Document) {
       const info = parseInfo(doc);
       const courses = parseCourses(doc);
-      await chrome.storage.sync.set({ info, courses });
+      await chrome.storage.local.set({ info, courses });
     }
   }
 
@@ -19,12 +19,12 @@ if (window.location.hostname === ROSDISTANT_HOSTNAME) {
     const doc = await parseHtmlFromUrl(BRS_URL);
     if (doc instanceof Document) {
       const grades = parseGrades(doc);
-      await chrome.storage.sync.set({ grades });
+      await chrome.storage.local.set({ grades });
     }
   }
 
   if (window.location.pathname === MY_STUDY_URL) {
-    const data = (await chrome.storage.sync.get(['courses', 'grades'])) as IStorage;
+    const data = (await chrome.storage.local.get(['courses', 'grades'])) as IStorage;
 
     // Replace main row spans
     const mainRowEl = document.querySelector<HTMLDivElement>('#region-main .row-fluid');
