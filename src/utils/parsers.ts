@@ -7,24 +7,28 @@ export const parseInfo = (doc: Document) => {
 };
 
 export const parseCourses = (doc: Document) => {
-  const courseElements = doc.querySelectorAll('.card-body .row-fluid');
-  const courses = Array.from(courseElements).reduce<ICourse>((acc, el) => {
-    const linkEl = el.querySelector<HTMLLinkElement>('.coursebox a.fancybox-thumb');
-    const formEl = el.querySelector<HTMLSpanElement>('.span3');
+  let courses = {};
+  const semesters = doc.querySelectorAll('.tab-pane');
+  semesters.forEach((semester) => {
+    const courseElements = semester.querySelectorAll('.card-body .row-fluid');
+    courses = Array.from(courseElements).reduce<ICourse>((acc, el) => {
+      const linkEl = el.querySelector<HTMLLinkElement>('.coursebox a.fancybox-thumb');
+      const formEl = el.querySelector<HTMLSpanElement>('.span3');
 
-    const id = getIdFromLinkTag(linkEl);
-    const name = linkEl?.textContent?.trim();
-    const form = formEl?.textContent?.trim();
+      const id = getIdFromLinkTag(linkEl);
+      const name = linkEl?.textContent?.trim();
+      const form = formEl?.textContent?.trim();
 
-    if (id && name && form) {
-      acc[id] = {
-        name,
-        form,
-      };
-    }
+      if (id && name && form) {
+        acc[id] = {
+          name,
+          form,
+        };
+      }
 
-    return acc;
-  }, {});
+      return acc;
+    }, courses);
+  });
   return courses;
 };
 
