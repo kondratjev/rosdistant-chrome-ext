@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import { crx } from '@crxjs/vite-plugin';
 import react from '@vitejs/plugin-react';
 import zipPack from 'vite-plugin-zip-pack';
+import topLevelAwait from 'vite-plugin-top-level-await';
 
 import manifest from './src/manifest';
 //@ts-ignore
@@ -22,6 +23,10 @@ export default defineConfig(({ mode }) => {
     },
 
     plugins: [
+      topLevelAwait({
+        promiseExportName: '__tla',
+        promiseImportName: (i) => `__tla_${i}`,
+      }),
       crx({ manifest }),
       react(),
       zipPack({
